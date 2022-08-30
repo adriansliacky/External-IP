@@ -8,19 +8,29 @@ from os import path
 import datetime
 import re
 import csv
+import argparse
+
+# Instantiate the parser
+parser = argparse.ArgumentParser(
+    description='App for monitoring your external ip')
+
+parser.add_argument('-c', action='store_true',
+                    help='ignore connection errors')
+args = parser.parse_args()
 
 
 def network_error(msg):
-    print(
-        f'{Fore.RED}Please check your network connection and try again {Style.RESET_ALL}- {msg}')
-    exit()
+    if args.c:
+        print(
+            f'{datetime.datetime.now()} -{Fore.RED} network error {Style.RESET_ALL}- {msg}')
+    else:
+        print(
+            f'{Fore.RED}Please check your network connection and try again {Style.RESET_ALL}- {msg}')
+        exit()
 
 
 def get_v4():
-    try:
-        v4_ = requests.get('https://api.ipify.org').text
-    except requests.exceptions.ConnectionError as e:
-        network_error(e)
+    v4_ = requests.get('https://api.ipify.org').text
 
     # validate ipv4 address
     if re.search(r"(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}", v4_) != None:
@@ -30,10 +40,7 @@ def get_v4():
 
 
 def get_v6():
-    try:
-        v6_ = requests.get('https://api64.ipify.org').text
-    except requests.exceptions.ConnectionError as e:
-        network_error(e)
+    v6_ = requests.get('https://api64.ipify.org').text
 
     # validate ipv6 address
     if re.search(r"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))", v6_):
@@ -94,42 +101,46 @@ x = 1
 
 
 def main():
-    global x
-    print(f'Running test #{x}')
-    ipv4 = get_v4()
-    if not ipv4 == '0.0.0.0':
-        print(
-            'ipv4 [' + u'{0}\u2713{1}'.format(Fore.GREEN, Style.RESET_ALL) + ']' + f' - {ipv4}')
-    else:
-        print(
-            'ipv4 [' + u'{0}\u2717{1}'.format(Fore.RED, Style.RESET_ALL) + ']')
+    try:
+        global x
+        print(f'Running test #{x}')
+        ipv4 = get_v4()
+        if not ipv4 == '0.0.0.0':
+            print(
+                'ipv4 [' + u'{0}\u2713{1}'.format(Fore.GREEN, Style.RESET_ALL) + ']' + f' - {ipv4}')
+        else:
+            print(
+                'ipv4 [' + u'{0}\u2717{1}'.format(Fore.RED, Style.RESET_ALL) + ']')
 
-    ipv6 = get_v6()
-    if not ipv6 == '::/0':
-        print(
-            'ipv6 [' + u'{0}\u2713{1}'.format(Fore.GREEN, Style.RESET_ALL) + ']' + f' - {ipv6}')
-    else:
-        print(
-            'ipv6 [' + u'{0}\u2717{1}'.format(Fore.RED, Style.RESET_ALL) + ']')
-    x += 1
+        ipv6 = get_v6()
+        if not ipv6 == '::/0':
+            print(
+                'ipv6 [' + u'{0}\u2713{1}'.format(Fore.GREEN, Style.RESET_ALL) + ']' + f' - {ipv6}')
+        else:
+            print(
+                'ipv6 [' + u'{0}\u2717{1}'.format(Fore.RED, Style.RESET_ALL) + ']')
+        x += 1
 
-    last_line = csv_get_last_line()
+        last_line = csv_get_last_line()
 
-    print()
-    is_new_ipv4 = (last_line[1].strip() != ipv4)
-    if not is_new_ipv4:
-        print('ipv4 didn\'t change')
-    else:
-        print(f'your ipv4 changed, your new lease: {ipv4}')
-    is_new_ipv6 = (last_line[2].strip() != ipv6)
-    if not is_new_ipv6:
-        print('ipv6 didn\'t change')
-    else:
-        print(f'your ipv6 changed, your new lease: {ipv6}')
+        print()
+        is_new_ipv4 = (last_line[1].strip() != ipv4)
+        if not is_new_ipv4:
+            print('ipv4 didn\'t change')
+        else:
+            print(f'your ipv4 changed, your new lease: {ipv4}')
+        is_new_ipv6 = (last_line[2].strip() != ipv6)
+        if not is_new_ipv6:
+            print('ipv6 didn\'t change')
+        else:
+            print(f'your ipv6 changed, your new lease: {ipv6}')
 
-    if is_new_ipv4 or is_new_ipv6:
-        csv_write_list([[str(datetime.datetime.now()), str(ipv4), str(ipv6)]])
-    print('\n')
+        if is_new_ipv4 or is_new_ipv6:
+            csv_write_list(
+                [[str(datetime.datetime.now()), str(ipv4), str(ipv6)]])
+        print('\n')
+    except requests.exceptions.ConnectionError as e:
+        network_error(e)
 
 
 delay = 300  # delay between runs in seconds
