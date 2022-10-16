@@ -1,3 +1,4 @@
+from types import NoneType
 import requests
 from colorama import Fore
 from colorama import Style
@@ -11,21 +12,32 @@ import csv
 import argparse
 
 # Instantiate the parser
+default_delay = 300
 parser = argparse.ArgumentParser(
     description='App for monitoring your external ip')
 
 parser.add_argument('-c', action='store_true',
                     help='ignore connection errors')
+parser.add_argument('-d', nargs='?', const=default_delay, type=int,
+                    help='delay between each run in seconds, default is 300')
 args = parser.parse_args()
 
-dtime_format_1 = ((datetime.datetime.now()).strftime(
-    '%Y-%m-%d %H:%M:%S.%f'))[:-5]  # returns current time with decimal precision
+if args.d is None:
+    args.d = default_delay
+
+if args.d < 1:
+    parser.error('delay_arg cannot be smaller than 1')
+
+
+def dtime_format_1():
+    return ((datetime.datetime.now()).strftime(
+        '%Y-%m-%d %H:%M:%S.%f'))[:-5]  # returns current time with decimal precision
 
 
 def network_error(msg):
     if args.c:
         print(
-            f'{dtime_format_1} -{Fore.RED} network error {Style.RESET_ALL}- {msg}')
+            f'{dtime_format_1()} -{Fore.RED} network error {Style.RESET_ALL}- {msg}')
     else:
         print(
             f'{Fore.RED}Please check your network connection and try again {Style.RESET_ALL}- {msg}')
@@ -36,7 +48,7 @@ def get_v4():
     v4_ = requests.get('https://api.ipify.org').text
 
     # validate ipv4 address
-    if re.search(r"(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}", v4_) != None:
+    if re.search(r'(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}', v4_) != None:
         return v4_
     else:
         return '0.0.0.0'
@@ -46,7 +58,7 @@ def get_v6():
     v6_ = requests.get('https://api64.ipify.org').text
 
     # validate ipv6 address
-    if re.search(r"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))", v6_):
+    if re.search(r'(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))', v6_):
         return v6_
     else:
         return '::/0'
@@ -106,7 +118,7 @@ x = 1
 def main():
     try:
         global x
-        print(f'Running test #{x} at {str(dtime_format_1)}')
+        print(f'Running test #{x} at {str(dtime_format_1())}')
         ipv4 = get_v4()
         if not ipv4 == '0.0.0.0':
             print(
@@ -140,13 +152,13 @@ def main():
 
         if is_new_ipv4 or is_new_ipv6:
             csv_write_list(
-                [[str(dtime_format_1), str(ipv4), str(ipv6)]])
+                [[str(dtime_format_1()), str(ipv4), str(ipv6)]])
         print('\n')
     except requests.exceptions.ConnectionError as e:
         network_error(e)
 
 
-delay = 300  # delay between runs in seconds
+delay = args.d
 
 s = sched.scheduler(time.time, time.sleep)
 
