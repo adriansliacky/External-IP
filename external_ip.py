@@ -18,11 +18,14 @@ parser.add_argument('-c', action='store_true',
                     help='ignore connection errors')
 args = parser.parse_args()
 
+dtime_format_1 = ((datetime.datetime.now()).strftime(
+    '%Y-%m-%d %H:%M:%S.%f'))[:-5]  # returns current time with decimal precision
+
 
 def network_error(msg):
     if args.c:
         print(
-            f'{datetime.datetime.now()} -{Fore.RED} network error {Style.RESET_ALL}- {msg}')
+            f'{dtime_format_1} -{Fore.RED} network error {Style.RESET_ALL}- {msg}')
     else:
         print(
             f'{Fore.RED}Please check your network connection and try again {Style.RESET_ALL}- {msg}')
@@ -103,7 +106,7 @@ x = 1
 def main():
     try:
         global x
-        print(f'Running test #{x}')
+        print(f'Running test #{x} at {str(dtime_format_1)}')
         ipv4 = get_v4()
         if not ipv4 == '0.0.0.0':
             print(
@@ -137,7 +140,7 @@ def main():
 
         if is_new_ipv4 or is_new_ipv6:
             csv_write_list(
-                [[str(datetime.datetime.now()), str(ipv4), str(ipv6)]])
+                [[str(dtime_format_1), str(ipv4), str(ipv6)]])
         print('\n')
     except requests.exceptions.ConnectionError as e:
         network_error(e)
