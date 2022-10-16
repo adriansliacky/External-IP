@@ -1,4 +1,3 @@
-from types import NoneType
 import requests
 from colorama import Fore
 from colorama import Style
@@ -27,6 +26,8 @@ if args.d is None:
 
 if args.d < 1:
     parser.error('delay_arg cannot be smaller than 1')
+
+print(args.d)
 
 
 def dtime_format_1():
