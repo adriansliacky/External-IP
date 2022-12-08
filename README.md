@@ -1,2 +1,3 @@
 # External-IP
-A tool that monitors your external ipv4 and ipv6.
+A tool that monitors your external IPv4 and IPv6.
+
