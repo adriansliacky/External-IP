@@ -10,7 +10,6 @@ import re
 import csv
 import argparse
 
-# Instantiate the parser
 default_delay = 300
 parser = argparse.ArgumentParser(
     description='App for monitoring your external ip')
@@ -49,8 +48,8 @@ def get_v4():
     v4_ = requests.get('https://api.ipify.org').text
 
     # validate ipv4 address
-    if re.search(r'(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}', v4_
-                 ) is not None:
+    if re.search(r'(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}',
+                 v4_) is not None:
         return v4_
     else:
         return '0.0.0.0'
@@ -76,8 +75,6 @@ def get_v6():
 """
 csv
 """
-###
-
 path_to_file = r'public_ip_history.csv'
 
 """
@@ -105,14 +102,14 @@ header
 
 
 def csv_write_list(data_to_write):
-    with open(path_to_file, 'a', newline='') as file:
-        writer = csv.writer(file)
+    with open(path_to_file, 'a', newline='') as f:
+        writer = csv.writer(f)
         writer.writerows(data_to_write)
 
 
 def csv_get_last_line(filepath=path_to_file):
-    with open(filepath) as file:
-        for line in file:
+    with open(filepath) as f:
+        for line in f:
             pass
     return line.split(',')
 
@@ -150,12 +147,12 @@ def main():
         print()
         is_new_ipv4 = (last_line[1].strip() != ipv4)
         if not is_new_ipv4:
-            print('ipv4 didn\'t change')
+            print('ipv4 did not change')
         else:
             print(f'your ipv4 changed, your new lease: {ipv4}')
         is_new_ipv6 = (last_line[2].strip() != ipv6)
         if not is_new_ipv6:
-            print('ipv6 didn\'t change')
+            print('ipv6 did not change')
         else:
             print(f'your ipv6 changed, your new lease: {ipv6}')
 
@@ -163,8 +160,8 @@ def main():
             csv_write_list(
                 [[str(dtime_format_1()), str(ipv4), str(ipv6)]])
         print('\n')
-    except requests.exceptions.ConnectionError as e:
-        network_error(e)
+    except requests.exceptions.ConnectionError as err:
+        network_error(err)
 
 
 delay = args.d
