@@ -3,6 +3,8 @@ import os
 import datetime
 import re
 import csv
+import time
+import sched
 from colorama import Fore, Style
 from os import path
 from argparse import ArgumentParser
@@ -15,8 +17,8 @@ SAVE_PATH = r'public_ip_history.csv'
 parser = ArgumentParser(description='Tool for monitoring your external ip')
 
 parser.add_argument('-c', action='store_false',
-                    help='ignore connection errors')
-parser.add_argument('-d', nargs='?', const=DEFAULT_DELAY, type=int,
+                    help='halt on connection errors')
+parser.add_argument('-d', nargs='?', const=DEFAULT_DELAY, type=float,
                     help=f'delay between each run in seconds, default is {DEFAULT_DELAY}')
 parser.add_argument('-f', nargs='?', const=SAVE_PATH, type=str,
                     help=f'log save location, default is {SAVE_PATH}')
@@ -33,6 +35,8 @@ if args.d < 1:
 delay = args.d
 path_to_file = args.f
 
+NULL_V4, NULL_V6, NA = '0.0.0.0', '::/0', '-'
+
 
 def dtime_format_1():
     return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-5]  # current time with decimal precision
@@ -40,23 +44,23 @@ def dtime_format_1():
 
 def network_error(msg):
     if args.c:
-        print(f'{dtime_format_1()} -{Fore.RED} network error {Style.RESET_ALL}- {msg}')
+        print(f'{dtime_format_1()} -{Fore.RED} network error {Style.RESET_ALL}- {msg}\n\n')
     else:
         exit(f'{Fore.RED}Please check your network connection and try again {Style.RESET_ALL}- {msg}')
 
 
 def get_v4():
-    v4_ = httpx.get('https://api.ipify.org').text
+    addr = httpx.get('https://api.ipify.org').text
     # validate ipv4 address
     if re.search(r'(\b25[0-5]|\b2[0-4][0-9]|\b[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}',
-                 v4_):
-        return v4_
+                 addr):
+        return addr
     else:
-        return '0.0.0.0'
+        return NULL_V4
 
 
 def get_v6():
-    v6_ = httpx.get('https://api64.ipify.org').text
+    addr = httpx.get('https://api64.ipify.org').text
     # validate ipv6 address
     if re.search(r'(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,'
                  r'6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,'
@@ -65,10 +69,10 @@ def get_v6():
                  r'7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2['
                  r'0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,'
                  r'4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,'
-                 r'1}[0-9]))', v6_):
-        return v6_
+                 r'1}[0-9]))', addr):
+        return addr
     else:
-        return '::/0'
+        return NULL_V6
 
 
 def new_csv_file():
@@ -97,6 +101,7 @@ def csv_get_last_line(filepath=path_to_file):
 
 def ip_mention(addr, v):
     first_mention = ''
+    mention_text = ' (new lease)'
     for line in open(path_to_file).readlines():
         if line.split(',')[v].strip() == addr:
             first_mention = line.split(',')[0]
@@ -109,58 +114,68 @@ def ip_mention(addr, v):
                 break
         l_diff = datetime.datetime.now() - datetime.datetime.strptime(last_mention, '%Y-%m-%d %H:%M:%S.%f')
         if not last_mention:
-            return ''
+            return mention_text
         elif first_mention == last_mention:
             return f' | last mention: {last_mention} ({l_diff.days} days)'
         else:
             f_diff = datetime.datetime.now() - datetime.datetime.strptime(first_mention, '%Y-%m-%d %H:%M:%S.%f')
             return f' | first mention: {first_mention} ({f_diff.days} days) | last mention: {last_mention} ({l_diff.days} days)'
-    return ''
+    return mention_text
+
+
+def test(l_addr, v):
+    if v == 1:
+        v_txt = 'IPv4'
+        addr = get_v4()
+    else:
+        v_txt = 'IPv6'
+        addr = get_v6()
+    return_is_new = False
+    if not addr == (NULL_V4 if v == 1 else NULL_V6):
+        is_new = l_addr.strip() != addr
+        return_is_new = is_new
+        if not is_new:
+            print('(unchanged)', end=' ')
+        else:
+            print('{0}(changed){1}'.format(Fore.YELLOW, Style.RESET_ALL), end=' ')
+        print(v_txt + ' [' + u'{0}\u2713{1}'.format(Fore.GREEN, Style.RESET_ALL) + ']'
+              + f' - {addr}' + ip_mention(addr, v))
+    else:
+        print(v_txt + ' [' + u'{0}\u2717{1}'.format(Fore.RED, Style.RESET_ALL) + ']')
+    return addr, return_is_new
+
+
+def skip_v(v):
+    if v == 1:
+        v_txt = 'IPv4'
+    else:
+        v_txt = 'IPv6'
+    print(v_txt + ' [' + u'{0}-{1}'.format(Fore.YELLOW, Style.RESET_ALL) + ']')
+
+
+test_n = 1
 
 
 def main():
-    test_n = 1
+    global test_n
 
     try:
         print(f'Running test #{test_n} at {str(dtime_format_1())}')
-        last_line = csv_get_last_line()
+        test_n += 1
+        last_v4, last_v6 = csv_get_last_line()[1:]
+        is_new_ipv4, is_new_ipv6 = False, False
 
         if IPV4_ENABLED:
-            ipv4 = get_v4()
-            if not ipv4 == '0.0.0.0':
-                print('IPv4 [' + u'{0}\u2713{1}'.format(Fore.GREEN, Style.RESET_ALL) + ']'
-                      + f' - {ipv4}' + ip_mention(ipv4, 1))
-            else:
-                print('IPv4 [' + u'{0}\u2717{1}'.format(Fore.RED, Style.RESET_ALL) + ']')
+            ipv4, is_new_ipv4 = test(last_v4, 1)
         else:
-            ipv4 = '-'
-            print('IPv4 [' + u'{0}-{1}'.format(Fore.YELLOW, Style.RESET_ALL) + ']')
+            ipv4 = NA
+            skip_v(1)
 
         if IPV6_ENABLED:
-            ipv6 = get_v6()
-            if not ipv6 == '::/0':
-                print('IPv6 [' + u'{0}\u2713{1}'.format(Fore.GREEN, Style.RESET_ALL) + ']'
-                      + f' - {ipv6}' + ip_mention(ipv6, 2))
-            else:
-                print('IPv6 [' + u'{0}\u2717{1}'.format(Fore.RED, Style.RESET_ALL) + ']')
+            ipv6, is_new_ipv6 = test(last_v6, 2)
         else:
-            ipv6 = '-'
-            print('IPv6 [' + u'{0}-{1}'.format(Fore.YELLOW, Style.RESET_ALL) + ']')
-        test_n += 1
-
-        print()
-
-        is_new_ipv4 = last_line[1].strip() != ipv4
-        if not is_new_ipv4:
-            print('IPv4 did not change')
-        else:
-            print(f'your IPv4 changed, your new lease: {ipv4}')
-
-        is_new_ipv6 = last_line[2].strip() != ipv6
-        if not is_new_ipv6:
-            print('IPv6 did not change')
-        else:
-            print(f'your IPv6 changed, your new lease: {ipv6}')
+            ipv6 = NA
+            skip_v(2)
 
         if is_new_ipv4 or is_new_ipv6:
             csv_write_list([[str(dtime_format_1()), str(ipv4), str(ipv6)]])
@@ -170,6 +185,14 @@ def main():
         network_error(err)
 
 
+def schedule(sc):
+    sc.enter(delay, 1, schedule, (sc,))
+    main()
+
+
 if __name__ == '__main__':
     new_csv_file()
     main()
+    s = sched.scheduler(time.time, time.sleep)
+    s.enter(delay, 1, schedule, (s,))
+    s.run()
